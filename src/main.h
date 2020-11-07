@@ -1,11 +1,13 @@
 #pragma once
 
 void StereoEstimation_DP(
-    const int& window_size,
     int height,
     int width,
     cv::Mat& image1, cv::Mat& image2,
-    cv::Mat& disparities, const double& scale
+    cv::Mat& l_disparity,
+    cv::Mat& r_disparity,
+    const double& scale, const double& weight
+    
 );
 
 void StereoEstimation_Naive(
