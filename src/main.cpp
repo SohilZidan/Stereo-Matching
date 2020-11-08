@@ -5,20 +5,20 @@
 #include <sstream>
 #include "main.h"
 
-int main(int argc, char** argv) {
+int main(int argc, char* argv[]) {
 
   ////////////////
   // Parameters //
   ////////////////
 
   // camera setup parameters
-  const double focal_length = 1247;
-  const double baseline = 213;
+  const double focal_length = 3740;
+  const double baseline = 160;
 
   // stereo estimation parameters
   const int dmin = 67;
-  const int window_size = 3;
-  const double weight = 50;
+  const int window_size = (argc > 4)? (int) *argv[4]: 5;
+  double weight =  (argc > 4) ? (double) *argv[4] : 1;
   const double scale = 3;
 
   ///////////////////////////
@@ -32,10 +32,12 @@ int main(int argc, char** argv) {
 
   cv::Mat image1 = cv::imread(argv[1], cv::IMREAD_GRAYSCALE);
   cv::Mat image2 = cv::imread(argv[2], cv::IMREAD_GRAYSCALE);
+  /*if (argc > 3)
+      window_size = (int) *argv[3];
+  if (argc > 4)
+      weight = (int) *argv[4];
+    */  
   const std::string output_file = argv[3];
-
-
-  
 
   if (!image1.data) {
     std::cerr << "No image1 data" << std::endl;
@@ -47,12 +49,6 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  //// showing left image
-  //cv::namedWindow("left", cv::WINDOW_AUTOSIZE);
-  //cv::imshow("left", image1);
-  //// showing right image
-  //cv::namedWindow("right", cv::WINDOW_AUTOSIZE);
-  //cv::imshow("right", image2);
 
   std::cout << "------------------ Parameters -------------------" << std::endl;
   std::cout << "focal_length = " << focal_length << std::endl;
@@ -71,19 +67,24 @@ int main(int argc, char** argv) {
   // Reconstruction //
   ////////////////////
 
-  // Naive disparity image
-  //cv::Mat naive_disparities = cv::Mat::zeros(height - window_size, width - window_size, CV_8UC1);
+  // disparity images
   cv::Mat naive_disparities = cv::Mat::zeros(height, width, CV_8UC1);
+  cv::Mat cv_naive_disparities = cv::Mat::zeros(height, width, CV_8UC1);
   cv::Mat l_disparity = cv::Mat::zeros(height, width, CV_8UC1);
   cv::Mat r_disparity = cv::Mat::zeros(height, width, CV_8UC1);
 
-  std::cout << "Naive stereo Matching" << std::endl;
+  // Naive Approach
+  double matching_time = (double)cv::getTickCount();
   StereoEstimation_Naive(
     window_size, dmin, height, width,
     image1, image2,
     naive_disparities, scale);
+
+  matching_time = ((double)cv::getTickCount() - matching_time) / cv::getTickFrequency();
+  std::cout << "Naive stereo Matching: " << matching_time<< std::endl;
   
-  std::cout << "DP stereo Matching" << std::endl;
+  // Dynamic Programming
+  matching_time = (double)cv::getTickCount();
   StereoEstimation_DP(
       height,
       width,
@@ -91,6 +92,18 @@ int main(int argc, char** argv) {
       l_disparity, r_disparity,
       scale, weight
   );
+  matching_time = ((double)cv::getTickCount() - matching_time) / cv::getTickFrequency();
+  std::cout << "DP stereo Matching: " << matching_time << std::endl;
+
+  // StereoBM opencv
+  int num_disparity = 16;
+  cv::Ptr<cv::StereoBM> l_matcher = cv::StereoBM::create(num_disparity, window_size);
+  matching_time = (double)cv::getTickCount();
+  l_matcher->compute(image1, image2, cv_naive_disparities);
+  matching_time = ((double)cv::getTickCount() - matching_time) / cv::getTickFrequency();
+  std::cout << "StereoBM stereo Matching: " << matching_time << std::endl;
+  cv::Mat raw_disp_vis;
+  //cv::xim getDisparityVis(left_disp, raw_disp_vis, vis_mult)
 
   ////////////
   // Output //
@@ -102,20 +115,24 @@ int main(int argc, char** argv) {
     height, width, naive_disparities,
     window_size, dmin, baseline, focal_length);
 
-  // save / display images
-  std::stringstream out1;
+  // save images
+  std::stringstream out1, out2, out3;
   out1 << output_file << "_naive.png";
   cv::imwrite(out1.str(), naive_disparities);
 
-  out1 << output_file << "_DP_left.png";
-  cv::imwrite(out1.str(), l_disparity);
+  out2 << output_file << "_DP_left.png";
+  cv::imwrite(out2.str(), l_disparity);
 
-  out1 << output_file << "_DP_right.png";
-  cv::imwrite(out1.str(), r_disparity);
+  out3 << output_file << "_DP_right.png";
+  cv::imwrite(out3.str(), r_disparity);
 
+  // save images
   // Naive
   cv::namedWindow("Disparity - Naive", cv::WINDOW_AUTOSIZE);
   cv::imshow("Disparity - Naive", naive_disparities);
+  // cv Naive
+  cv::namedWindow("Disparity - cv Naive", cv::WINDOW_AUTOSIZE);
+  cv::imshow("Disparity - cv Naive", cv_naive_disparities);
 
   // DP
   cv::namedWindow("Disparity - DP - left", cv::WINDOW_AUTOSIZE);
@@ -123,6 +140,8 @@ int main(int argc, char** argv) {
 
   cv::namedWindow("Disparity - DP - right", cv::WINDOW_AUTOSIZE);
   cv::imshow("Disparity - DP - right", r_disparity);
+
+  
 
   cv::waitKey(0);
 
@@ -230,11 +249,11 @@ void StereoEstimation_DP(
                 j--;
                 break;
             case 2:
-                //disleft.at<uchar>(row, i) = 0;
+                disleft.at<uchar>(row, i) = 0;
                 i--;
                 break;
             case 3:
-                //disright.at<uchar>(row, j) = 0;
+                disright.at<uchar>(row, j) = 0;
                 j--;
                 break;
             }
@@ -273,7 +292,7 @@ void StereoEstimation_Naive(
       << std::ceil(((i - half_window_size + 1) / static_cast<double>(height - window_size + 1)) * 100) << "%\r"
       << std::flush;
 
-//#pragma omp parallel for
+#pragma omp parallel for
     for (int j = half_window_size; j < width - half_window_size; ++j) {
       int min_ssd = INT_MAX;
       int disparity = 0;
@@ -381,13 +400,12 @@ void Disparity2PointCloud(
     std::cout << "Reconstructing 3D point cloud from disparities... " << std::ceil(((i) / static_cast<double>(height - window_size + 1)) * 100) << "%\r" << std::flush;
     for (int j = 0; j < width - window_size; ++j) {
       if (disparities.at<uchar>(i, j) == 0) continue;
+      // Triangulation
+      const double Z = focal_length * baseline / disparities.at<uchar>(i,j);
+      const double X = j * Z / focal_length;
+      const double Y = i * Z / focal_length;
 
-      // TODO
-      //const double Z = ...
-      //const double X = ...
-      //const double Y = ...
-	  //
-      //outfile << X << " " << Y << " " << Z << std::endl;
+      outfile << X << " " << Y << " " << Z << std::endl;
     }
   }
 
