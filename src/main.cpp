@@ -17,8 +17,8 @@ int main(int argc, char* argv[]) {
 
   // stereo estimation parameters
   const int dmin = 67;
-  const int window_size = (argc > 4)? (int) *argv[4]: 5;
-  double weight =  (argc > 4) ? (double) *argv[4] : 1;
+  const int window_size = (argc > 4)? std::stoi(argv[4]) : 5;
+  const double weight =  (argc > 5) ? std::stod(argv[5]) : 1;
   const double scale = 3;
 
   ///////////////////////////
@@ -112,7 +112,7 @@ int main(int argc, char* argv[]) {
   // reconstruction
   Disparity2PointCloud(
     output_file,
-    height, width, naive_disparities,
+    height, width, l_disparity,
     window_size, dmin, baseline, focal_length);
 
   // save images
