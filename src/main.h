@@ -1,6 +1,7 @@
 #pragma once
 
 void StereoEstimation_DP(
+    const int& window_size,
     int height,
     int width,
     cv::Mat& image1, cv::Mat& image2,

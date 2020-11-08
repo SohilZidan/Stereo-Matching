@@ -86,6 +86,7 @@ int main(int argc, char* argv[]) {
   // Dynamic Programming
   matching_time = (double)cv::getTickCount();
   StereoEstimation_DP(
+      window_size,
       height,
       width,
       image1, image2,
@@ -149,6 +150,7 @@ int main(int argc, char* argv[]) {
 }
 
 void StereoEstimation_DP(
+    const int& window_size,
     int height,
     int width,
     cv::Mat& image1, cv::Mat& image2,
@@ -158,6 +160,8 @@ void StereoEstimation_DP(
     const double& weight
 ) 
 {
+    int half_window_size = window_size / 2;
+
     cv::Mat C;// = cv::Mat::zeros(width, width, CV_8UC1);
     cv::Mat M;// = cv::Mat::ones(cv::Size(width, width), CV_8UC1);
 
@@ -166,7 +170,7 @@ void StereoEstimation_DP(
     //float lambda = 100; // occlusion cost
 
 #pragma omp parallel for
-    for (int row = 0; row < height; ++row) {
+    for (int row = 0 + half_window_size; row < height - half_window_size; ++row) {
         cv::Mat C = cv::Mat::zeros(width, width, CV_32FC1);
         cv::Mat M = cv::Mat::ones(width, width, CV_8UC1);
         /*std::cout
@@ -177,7 +181,7 @@ void StereoEstimation_DP(
            
 
         // initialization
-        for (int k = 0; k < width/* - half_window_size*/; k++)
+        for (int k = 0 + half_window_size; k < width - half_window_size/* - half_window_size*/; k++)
         {
             C.at<float>(k, 0) = k * weight;
         }
@@ -186,19 +190,19 @@ void StereoEstimation_DP(
             C.at<float>(0, k) = k * weight;
         }
 
-        for (int k = 0; k < width; k++)
+        for (int k = 0 + half_window_size; k < width - half_window_size; k++)
         {
             M.at<uchar>(0, k) = 3;
             M.at<uchar>(k, 0) = 2;
         }
 
 
-        for (int i = 1; i < width; i++)
+        for (int i = 1 + half_window_size; i < width - half_window_size ; i++)
         {
-            for (int j = 1; j < width; j++)
+            for (int j = 1 + half_window_size; j < width - half_window_size; j++)
             {
                 int dissimilarity = 0;
-                /*for (int u = -half_window_size; u <= half_window_size; u++)
+                for (int u = -half_window_size; u <= half_window_size; u++)
                 {
                     for (int v = -half_window_size; v <= half_window_size; v++)
                     {
@@ -207,10 +211,10 @@ void StereoEstimation_DP(
                         dissimilarity += (val_left - val_right) * (val_left - val_right);
                     }
 
-                }*/
-                int val_left = image1.at<uchar>(row, i);
-                int val_right = image2.at<uchar>(row, j);
-                dissimilarity = (val_left - val_right) * (val_left - val_right);
+                }
+                //int val_left = image1.at<uchar>(row, i);
+                //int val_right = image2.at<uchar>(row, j);
+                //dissimilarity = (val_left - val_right) * (val_left - val_right);
 
                 float min1 = C.at<float>(i - 1, j - 1) + dissimilarity; // match
                 float min2 = C.at<float>(i - 1, j) + weight; // left occlusion
@@ -236,9 +240,9 @@ void StereoEstimation_DP(
         cv::imshow("Left Disparity", C);
         break;*/
         //std::cout << "Computing disparity" << std::endl;
-        int i = width - 1;
+        int i = width - half_window_size - 1;
         int j = i;
-        while (i > 0 && j > 0)
+        while (i > 0 + half_window_size && j > 0 + half_window_size)
         {
             switch (M.at<uchar>(i, j))
             {
