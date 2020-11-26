@@ -20,6 +20,9 @@ void StereoEstimation_Naive(
 
 void Disparity2PointCloud(
   const std::string& output_file,
+    cv::Mat& image1,
   int height, int width, cv::Mat& disparities,
   const int& window_size,
   const int& dmin, const double& baseline, const double& focal_length);
+
+

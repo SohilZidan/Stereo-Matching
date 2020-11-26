@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include "main.h"
+#include "utils.h"
 
 int main(int argc, char* argv[]) {
 
@@ -16,10 +17,11 @@ int main(int argc, char* argv[]) {
   const double baseline = 160;
 
   // stereo estimation parameters
-  const int dmin = 67;
+  //readMiddleburyDMin(argv[6]);
+  const int dmin = 200;//(argc > 6)? readMiddleburyDMin(argv[6]): 200;
   const int window_size = (argc > 4)? std::stoi(argv[4]) : 5;
   const double weight =  (argc > 5) ? std::stod(argv[5]) : 1;
-  const double scale = 3;
+  const double scale = 1;
 
   ///////////////////////////
   // Commandline arguments //
@@ -32,11 +34,7 @@ int main(int argc, char* argv[]) {
 
   cv::Mat image1 = cv::imread(argv[1], cv::IMREAD_GRAYSCALE);
   cv::Mat image2 = cv::imread(argv[2], cv::IMREAD_GRAYSCALE);
-  /*if (argc > 3)
-      window_size = (int) *argv[3];
-  if (argc > 4)
-      weight = (int) *argv[4];
-    */  
+
   const std::string output_file = argv[3];
 
   if (!image1.data) {
@@ -63,15 +61,11 @@ int main(int argc, char* argv[]) {
   int height = image1.size().height;
   int width = image1.size().width;
 
-  ////////////////////
-  // Reconstruction //
-  ////////////////////
-
   // disparity images
-  cv::Mat naive_disparities = cv::Mat::zeros(height, width, CV_8UC1);
-  cv::Mat cv_naive_disparities = cv::Mat::zeros(height, width, CV_8UC1);
-  cv::Mat l_disparity = cv::Mat::zeros(height, width, CV_8UC1);
-  cv::Mat r_disparity = cv::Mat::zeros(height, width, CV_8UC1);
+  cv::Mat naive_disparities = cv::Mat::zeros(height, width, CV_16UC1 );
+  cv::Mat cv_naive_disparities = cv::Mat::zeros(height, width, CV_16UC1);
+  cv::Mat l_disparity = cv::Mat::zeros(height, width, CV_16UC1);
+  cv::Mat r_disparity = cv::Mat::zeros(height, width, CV_16UC1);
 
   // Naive Approach
   double matching_time = (double)cv::getTickCount();
@@ -97,48 +91,68 @@ int main(int argc, char* argv[]) {
   std::cout << "DP stereo Matching: " << matching_time << std::endl;
 
   // StereoBM opencv
-  int num_disparity = 16;
+  /*int num_disparity = 16;
   cv::Ptr<cv::StereoBM> l_matcher = cv::StereoBM::create(num_disparity, window_size);
   matching_time = (double)cv::getTickCount();
   l_matcher->compute(image1, image2, cv_naive_disparities);
   matching_time = ((double)cv::getTickCount() - matching_time) / cv::getTickFrequency();
   std::cout << "StereoBM stereo Matching: " << matching_time << std::endl;
-  cv::Mat raw_disp_vis;
+  cv::Mat raw_disp_vis;*/
   //cv::xim getDisparityVis(left_disp, raw_disp_vis, vis_mult)
 
   ////////////
   // Output //
   ////////////
 
-  // reconstruction
+  std::string params = "Params windsize" + std::to_string(window_size) + "-occweight" + std::to_string(weight);
+  ////////////////////
+  // Reconstruction //
+  ////////////////////
   Disparity2PointCloud(
-    output_file,
+    output_file + params,
+    image1,
     height, width, l_disparity,
     window_size, dmin, baseline, focal_length);
 
+  
+  // Convert to range 0 255
+  // this help in generalization
+  cv::Mat tmp;
+  naive_disparities.convertTo(tmp, CV_8UC1);
+  tmp.copyTo(naive_disparities);
+  l_disparity.convertTo(tmp, CV_8UC1);
+  tmp.copyTo(l_disparity);
+  r_disparity.convertTo(tmp, CV_8UC1);
+  tmp.copyTo(r_disparity);
+  
   // save images
   std::stringstream out1, out2, out3;
-  out1 << output_file << "_naive.png";
+  out1 << output_file << "_naive" << params << ".png";
   cv::imwrite(out1.str(), naive_disparities);
 
-  out2 << output_file << "_DP_left.png";
+  out2 << output_file << "_DP_left" << params << ".png";
   cv::imwrite(out2.str(), l_disparity);
 
-  out3 << output_file << "_DP_right.png";
+  out3 << output_file << "_DP_right" << params << ".png";
   cv::imwrite(out3.str(), r_disparity);
 
-  // save images
+  // show images
   // Naive
+  /*double minVal;
+  double maxVal;
+  cv::minMaxLoc(naive_disparities, &minVal, &maxVal, NULL, NULL);
+  std::cout << "min: " << minVal << " ,max: " << maxVal << std::endl;*/
   cv::namedWindow("Disparity - Naive", cv::WINDOW_AUTOSIZE);
   cv::imshow("Disparity - Naive", naive_disparities);
+  
   // cv Naive
-  cv::namedWindow("Disparity - cv Naive", cv::WINDOW_AUTOSIZE);
-  cv::imshow("Disparity - cv Naive", cv_naive_disparities);
-
+  /*cv::namedWindow("Disparity - cv Naive", cv::WINDOW_AUTOSIZE);
+  cv::imshow("Disparity - cv Naive", cv_naive_disparities);*/
+  
   // DP
   cv::namedWindow("Disparity - DP - left", cv::WINDOW_AUTOSIZE);
   cv::imshow("Disparity - DP - left", l_disparity);
-
+  
   cv::namedWindow("Disparity - DP - right", cv::WINDOW_AUTOSIZE);
   cv::imshow("Disparity - DP - right", r_disparity);
 
@@ -165,8 +179,8 @@ void StereoEstimation_DP(
     cv::Mat C;// = cv::Mat::zeros(width, width, CV_8UC1);
     cv::Mat M;// = cv::Mat::ones(cv::Size(width, width), CV_8UC1);
 
-    cv::Mat disleft = cv::Mat::zeros(height, width, CV_8UC1);
-    cv::Mat disright = cv::Mat::zeros(height, width, CV_8UC1);
+    cv::Mat disleft = cv::Mat::zeros(height, width, CV_16UC1);
+    cv::Mat disright = cv::Mat::zeros(height, width, CV_16UC1);
     //float lambda = 100; // occlusion cost
 
 #pragma omp parallel for
@@ -247,17 +261,21 @@ void StereoEstimation_DP(
             switch (M.at<uchar>(i, j))
             {
             case 1:
-                disleft.at<uchar>(row, i) = abs(i - j) * scale;
-                disright.at<uchar>(row, j) = abs(j - i) * scale;
-                i --;
+                disleft.at<uint16_t>(row, i) = abs(i-j) * scale;
+                /*if (abs(i - j) * scale > 255) {
+                    std::cout << abs(i - j) * scale << std::endl;
+                    std::cout << disleft.at<uint16_t>(row, i) << std::endl;
+                }*/
+                disright.at<uint16_t>(row, j) = abs(j-i) * scale;
+                i--;
                 j--;
                 break;
             case 2:
-                disleft.at<uchar>(row, i) = 0;
+                disleft.at<uint16_t>(row, i) = 0;
                 i--;
                 break;
             case 3:
-                disright.at<uchar>(row, j) = 0;
+                disright.at<uint16_t>(row, j) = 0;
                 j--;
                 break;
             }
@@ -270,6 +288,9 @@ void StereoEstimation_DP(
 
     cv::namedWindow("Right Disparity", cv::WINDOW_AUTOSIZE);
     cv::imshow("Right Disparity", disright);*/
+    //disleft.convertTo(l_disparity,CV_8UC1, 1.0/255, 0.0);
+    //cv::normalize(disleft, l_disparity, 0, 255, cv::NORM_MINMAX);
+    //cv::normalize(disright, r_disparity, 0, 255, cv::NORM_MINMAX);
     l_disparity = disleft;
     r_disparity = disright;
     //std::cout << disparities;
@@ -382,7 +403,7 @@ void StereoEstimation_Naive(
           }
       }
 
-      naive_disparities.at<uchar>(i - half_window_size, j - half_window_size) = std::abs(disparity) * scale;
+      naive_disparities.at<uint16_t>(i - half_window_size, j - half_window_size) = std::abs(disparity) * scale;
     }
     first_row_skipped = true;
   }
@@ -391,25 +412,36 @@ void StereoEstimation_Naive(
   std::cout << std::endl;
 }
 
+
+
 void Disparity2PointCloud(
   const std::string& output_file,
+  cv::Mat& image1,
   int height, int width, cv::Mat& disparities,
   const int& window_size,
   const int& dmin, const double& baseline, const double& focal_length)
 {
   std::stringstream out3d;
-  out3d << output_file << ".xyz";
+  out3d << output_file << ".txt";
   std::ofstream outfile(out3d.str());
+
+  // RGB grey image
+  cv::Mat bgrimg;
+  cv::cvtColor(image1, bgrimg, cv::COLOR_GRAY2BGR);
+
   for (int i = 0; i < height - window_size; ++i) {
     std::cout << "Reconstructing 3D point cloud from disparities... " << std::ceil(((i) / static_cast<double>(height - window_size + 1)) * 100) << "%\r" << std::flush;
     for (int j = 0; j < width - window_size; ++j) {
       if (disparities.at<uchar>(i, j) == 0) continue;
       // Triangulation
-      const double Z = focal_length * baseline / disparities.at<uchar>(i,j);
+      const double Z = focal_length * baseline / (disparities.at<uchar>(i,j) + dmin);
       const double X = j * Z / focal_length;
       const double Y = i * Z / focal_length;
+      const double R = bgrimg.at<cv::Vec3b>(i, j)[2];
+      const double G = bgrimg.at<cv::Vec3b>(i, j)[1];
+      const double B = bgrimg.at<cv::Vec3b>(i, j)[0];
 
-      outfile << X << " " << Y << " " << Z << std::endl;
+      outfile << X << " " << Y << " " << Z << " " << R << " " << G << " " << B << std::endl;
     }
   }
 
