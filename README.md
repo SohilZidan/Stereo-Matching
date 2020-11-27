@@ -34,7 +34,7 @@ occweight = 1500 | occweight = 2000 | occweight = 2500
 
 * Window Size = 7
 
-occweight = 1500 | occweight = 2000 , occweight = 2500
+occweight = 1500 | occweight = 2000 | occweight = 2500
 :-: | :-: | :-:
 ![DP](https://github.com/SohilZidan/Stereo-Matching/blob/master/data/output_DP_leftParams%20windsize7-occweight1500.000000.png) | ![DP](https://github.com/SohilZidan/Stereo-Matching/blob/master/data/output_DP_leftParams%20windsize7-occweight2000.000000.png) | ![DP](https://github.com/SohilZidan/Stereo-Matching/blob/master/data/output_DP_leftParams%20windsize7-occweight2500.000000.png)
 
