@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.9)
 
-project( stereo_estimation )
+# set the project name and version
+project( stereo_estimation VERSION 1.0)
 
 ###############
 # packages #
@@ -15,7 +16,7 @@ find_package(OpenMP)
 # executables #
 ###############
 
-add_executable( OpenCV_naive_stereo src/main.cpp  src/utils.cpp)
+add_executable( OpenCV_naive_stereo src/main.cpp  src/utils.cpp src/stereomatching.cpp)
 target_link_libraries( OpenCV_naive_stereo ${OpenCV_LIBS} )
 
 if(OpenMP_CXX_FOUND)
