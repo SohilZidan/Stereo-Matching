@@ -17,22 +17,16 @@ void StereoEstimation_DP(
 {
     int half_window_size = window_size / 2;
 
-    cv::Mat C;// = cv::Mat::zeros(width, width, CV_8UC1);
-    cv::Mat M;// = cv::Mat::ones(cv::Size(width, width), CV_8UC1);
+    // cv::Mat C;// = cv::Mat::zeros(width, width, CV_8UC1);
+    // cv::Mat M;// = cv::Mat::ones(cv::Size(width, width), CV_8UC1);
 
     cv::Mat disleft = cv::Mat::zeros(height, width, CV_16UC1);
     cv::Mat disright = cv::Mat::zeros(height, width, CV_16UC1);
-    //float lambda = 100; // occlusion cost
 
 #pragma omp parallel for
     for (int row = 0 + half_window_size; row < height - half_window_size; ++row) {
-        C = cv::Mat::zeros(width, width, CV_32FC1);
-        M = cv::Mat::ones(width, width, CV_8UC1);
-        /*std::cout
-            << "Calculating disparities for the DP approach... "
-            << std::ceil((row / static_cast<double>(height - 1)) * 100) << "%\r"
-            << std::flush;
-            */
+        cv::Mat C = cv::Mat::zeros(width, width, CV_32FC1);
+        cv::Mat M = cv::Mat::ones(width, width, CV_8UC1);
            
 
         // initialization
@@ -67,10 +61,7 @@ void StereoEstimation_DP(
                     }
 
                 }
-                //int val_left = image1.at<uchar>(row, i);
-                //int val_right = image2.at<uchar>(row, j);
-                //dissimilarity = (val_left - val_right) * (val_left - val_right);
-
+                
                 float min1 = C.at<float>(i - 1, j - 1) + dissimilarity; // match
                 float min2 = C.at<float>(i - 1, j) + weight; // left occlusion
                 float min3 = C.at<float>(i, j - 1) + weight; // right occlusion
@@ -90,11 +81,7 @@ void StereoEstimation_DP(
             }
 
         }
-        //std::cin.get();
-        /*cv::namedWindow("Left Disparity", cv::WINDOW_AUTOSIZE);
-        cv::imshow("Left Disparity", C);
-        break;*/
-        //std::cout << "Computing disparity" << std::endl;
+        
         int i = width - half_window_size - 1;
         int j = i;
         while (i > 0 + half_window_size && j > 0 + half_window_size)
@@ -103,10 +90,6 @@ void StereoEstimation_DP(
             {
             case 1:
                 disleft.at<uint16_t>(row, i) = abs(i-j) * scale;
-                /*if (abs(i - j) * scale > 255) {
-                    std::cout << abs(i - j) * scale << std::endl;
-                    std::cout << disleft.at<uint16_t>(row, i) << std::endl;
-                }*/
                 disright.at<uint16_t>(row, j) = abs(j-i) * scale;
                 i--;
                 j--;
@@ -124,17 +107,8 @@ void StereoEstimation_DP(
         }
     }
 
-    /*cv::namedWindow("Left Disparity", cv::WINDOW_AUTOSIZE);
-    cv::imshow("Left Disparity", disleft);
-
-    cv::namedWindow("Right Disparity", cv::WINDOW_AUTOSIZE);
-    cv::imshow("Right Disparity", disright);*/
-    //disleft.convertTo(l_disparity,CV_8UC1, 1.0/255, 0.0);
-    //cv::normalize(disleft, l_disparity, 0, 255, cv::NORM_MINMAX);
-    //cv::normalize(disright, r_disparity, 0, 255, cv::NORM_MINMAX);
     l_disparity = disleft;
     r_disparity = disright;
-    //std::cout << disparities;
 }
 
 void StereoEstimation_Naive(
