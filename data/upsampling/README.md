@@ -1,12 +1,12 @@
 # Upsampling Results
 ## RGB Image:
-![rgb](./upsampling/view1.png)
+![rgb](./view1.png)
 
 
 
 ## Depth Image
 
-![depth](./upsampling/disp1.png)
+![depth](./disp1.png)
 
 
 
