@@ -1,12 +1,12 @@
 # Upsampling Results
 ## RGB Image:
-![rgb](/home/sohil/Stereo-Matching/data/upsampling/view1.png)
+![rgb](./upsampling/view1.png)
 
 
 
 ## Depth Image
 
-![depth](/home/sohil/Stereo-Matching/data/upsampling/disp1.png)
+![depth](./upsampling/disp1.png)
 
 
 
@@ -14,6 +14,6 @@
 
 ### Guide Bilateral Filter
 
-![lowres](/home/sohil/Stereo-Matching/data/upsampling/output_lowres_gaussian.png)
+![lowres](./output_lowres_gaussian.png)
 
-![highres](/home/sohil/Stereo-Matching/data/upsampling/output_highres_gaussian.png)
+![highres](./output_highres_gaussian.png)
