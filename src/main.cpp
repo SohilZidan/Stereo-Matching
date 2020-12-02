@@ -3,27 +3,16 @@
 #include <string> 
 #include <fstream>
 #include <sstream>
+#include "main.h"
 #include "stereomatching.h"
 #include "filters.h"
 #include "utils.h"
 
 
-int main(int argc, char* argv[]) {
 
-  ////////////////
-  // Parameters //
-  ////////////////
 
-  // camera setup parameters
-  const double focal_length = 3740;
-  const double baseline = 160;
-
-  // stereo estimation parameters
-  //readMiddleburyDMin(argv[6]);
-  const int dmin = (argc > 6)? readMiddleburyDMin(argv[6]): 200;
-  const int window_size = (argc > 4)? std::stoi(argv[4]) : 5;
-  const double weight =  (argc > 5) ? std::stod(argv[5]) : 1;
-  const double scale = 1;
+int main(int argc, char* argv[]) 
+{
 
   ///////////////////////////
   // Commandline arguments //
@@ -33,10 +22,11 @@ int main(int argc, char* argv[]) {
     std::cerr << "Usage: " << argv[0] << " IMAGE1 IMAGE2 OUTPUT_FILE" << std::endl;
     return 1;
   }
+ 
 
+  // input and output images
   cv::Mat image1 = cv::imread(argv[1], cv::IMREAD_GRAYSCALE);
   cv::Mat image2 = cv::imread(argv[2], cv::IMREAD_GRAYSCALE);
-
   const std::string output_file = argv[3];
 
   if (!image1.data) {
@@ -49,141 +39,145 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-
-  std::cout << "------------------ Parameters -------------------" << std::endl;
-  std::cout << "focal_length = " << focal_length << std::endl;
-  std::cout << "baseline = " << baseline << std::endl;
-  std::cout << "window_size = " << window_size << std::endl;
-  std::cout << "occlusion weights = " << weight << std::endl;
-  std::cout << "disparity added due to image cropping = " << dmin << std::endl;
-  std::cout << "scaling of disparity images to show = " << scale << std::endl;
-  std::cout << "output filename = " << argv[3] << std::endl;
-  std::cout << "-------------------------------------------------" << std::endl;
-
   int height = image1.size().height;
   int width = image1.size().width;
 
-  // disparity images
-  cv::Mat naive_disparities = cv::Mat::zeros(height, width, CV_16UC1 );
-  cv::Mat cv_naive_disparities = cv::Mat::zeros(height, width, CV_16UC1);
-  cv::Mat l_disparity = cv::Mat::zeros(height, width, CV_16UC1);
-  cv::Mat r_disparity = cv::Mat::zeros(height, width, CV_16UC1);
 
-  // Naive Approach
-  double matching_time = (double)cv::getTickCount();
-  StereoEstimation_Naive(
-    window_size, dmin, height, width,
-    image1, image2,
-    naive_disparities, scale);
-
-  matching_time = ((double)cv::getTickCount() - matching_time) / cv::getTickFrequency();
-  std::cout << "Naive stereo Matching: " << matching_time<< " sec"<< std::endl;
-  
-  // Dynamic Programming
-  matching_time = (double)cv::getTickCount();
-  StereoEstimation_DP(
-      window_size,
-      height,
-      width,
-      image1, image2,
-      l_disparity, r_disparity,
-      scale, weight
-  );
-  matching_time = ((double)cv::getTickCount() - matching_time) / cv::getTickFrequency();
-  std::cout << "DP stereo Matching: " << matching_time << " sec" << std::endl;
+  std::cout << "------------------ Parameters -------------------" << std::endl;
+  std::cout << "RGB image = " << argv[1] << std::endl;
+  std::cout << "Depth image = " << argv[2] << std::endl;
+  std::cout << "output filename = " << argv[3] << std::endl;
+  std::cout << "-------------------------------------------------" << std::endl;
 
 
-  ////////////
-  // Output //
-  ////////////
+  /////////////////////////////
+  //  Bilateral Experiments  //
+  /////////////////////////////
+  /*std::stringstream out1;
+  const int size1 = 4, size2 = 4;
+  float spatial_sigmas[size1] = {1, 3, 5, 7};
+  float spectral_sigmas[size2] = {3, 7, 9, 11};
+  float windows[] = {5, 9, 13, 15};
+  std::string filter_output_file = "../data/bilateral results/output";
 
-  std::string params = "Params windsize" + std::to_string(window_size) + "-occweight" + std::to_string(weight);
-  ////////////////////
-  // Reconstruction //
-  ////////////////////
-  Disparity2PointCloud(
-    output_file + params,
-    image1,
-    height, width, l_disparity,
-    window_size, dmin, baseline, focal_length);
-
-  
-  // Convert to range 0 255
-  // this help in generalization
-  cv::Mat tmp;
-  naive_disparities.convertTo(tmp, CV_8UC1);
-  tmp.copyTo(naive_disparities);
-  l_disparity.convertTo(tmp, CV_8UC1);
-  tmp.copyTo(l_disparity);
-  r_disparity.convertTo(tmp, CV_8UC1);
-  tmp.copyTo(r_disparity);
-  
-  // save images
-  std::stringstream out1;
-  
-  // cv::imwrite(out1.str(), naive_disparities);
-
-  // out2 << output_file << "_DP_left" << params << ".png";
-  // cv::imwrite(out2.str(), l_disparity);
-
-  // out3 << output_file << "_DP_right" << params << ".png";
-  // cv::imwrite(out3.str(), r_disparity);
-  int winsize = 5;
-  float spatial_sigma = 2.828427125;
-  float spectral_sigma = 5;
-
-  cv::Mat output = cv::Mat::zeros(height, width, CV_8UC1);;
-  std::string suffix =  "_bilateral_wind" + 
-                        std::to_string(winsize) +
-                        "_spatial" + std::to_string(spatial_sigma) +
-                        "_spectral" + std::to_string(spectral_sigma) + 
-                        "_";
-
-  BilateralFilter(l_disparity, output, spatial_sigma, spectral_sigma , winsize);
-  cv::imshow("Bilateral_left_disp" + suffix, output);
-  out1 << output_file << "_l_disparity_" << suffix << ".png";
-  // std::cout << out1.str() << std::endl;
-  cv::imwrite(out1.str(), output);
-
-  // clearing stringstream
+  // save image and noisy image in file
   out1.str(std::string());
+  out1 << filter_output_file << "_original" << ".png";
+  // write to file
+  // original image
+  cv::imwrite(out1.str(), image1);
+  out1.str(std::string());
+  // noisy image
+  out1 << filter_output_file << "_noisy" << ".png";
+  cv::Mat noisy_im = image1 + getNoise(image1);
+  cv::imwrite(out1.str(), noisy_im);
+
+  // run expirements
+  for(auto w: windows){
+    creatExperiments(noisy_im, filter_output_file,
+      height, width,
+      spatial_sigmas, size1, 
+      spectral_sigmas, size2, w);
+  }*/
 
 
+  //////////////////
+  //  Upsampling  //
+  //////////////////
+  const float spatial_sigma = 3,
+        spectral_sigma = 5;
+  const int window_size = 7;
+  
+  cv::Mat output = IterativeUpsampling(
+                      image1, image2,
+                      spatial_sigma, spectral_sigma,
+                      window_size);
+  
+  // original depth
+  cv::resize(image2, image2, output.size());
+  cv::imshow("Depth - original", image2);
 
-  winsize = 9;
-  spatial_sigma = 2.828427125;
-  spectral_sigma = 5;
-  suffix =  "bilateral_wind" + 
-            std::to_string(winsize) +
-            "spatial_" + std::to_string(spatial_sigma) +
-            "spectral_" + std::to_string(spectral_sigma) +
-            "_";
-  // std::cout << suffix << std::endl;
-  BilateralFilter(l_disparity, output, spatial_sigma, spectral_sigma , winsize);
-  cv::imshow("Bilateral_left_disp"+suffix, output);
-  out1 << output_file << "_l_disparity_" << suffix << ".png";
-  // std::cout << out1.str() << std::endl;
+  // upsampled depth
+  cv::imshow("Depth - upsampled", output);
+
+  // save
+  std::stringstream out1;
+  std::string spatial_filter = "_gaussian";
+  out1 << output_file << "_lowres" << spatial_filter << ".png";
+  cv::imwrite(out1.str(), image2);
+
+  out1.str(std::string());
+  out1 << output_file << "_highres" << spatial_filter<< ".png";
   cv::imwrite(out1.str(), output);
-  // out1.clear();
-  // show images
-  // Naive
-  /*double minVal;
-  double maxVal;
-  cv::minMaxLoc(naive_disparities, &minVal, &maxVal, NULL, NULL);
-  std::cout << "min: " << minVal << " ,max: " << maxVal << std::endl;*/
-  cv::namedWindow("Disparity - Naive", cv::WINDOW_AUTOSIZE);
-  cv::imshow("Disparity - Naive", naive_disparities);
-  
-  // DP
-  cv::namedWindow("Disparity - DP - left", cv::WINDOW_AUTOSIZE);
-  cv::imshow("Disparity - DP - left", l_disparity);
-  
-  cv::namedWindow("Disparity - DP - right", cv::WINDOW_AUTOSIZE);
-  cv::imshow("Disparity - DP - right", r_disparity);
 
-  // upsampled data
   
   cv::waitKey(0);
 
   return 0;
+}
+
+void creatExperiments(
+  cv::Mat im, std::string output_file,
+  int height,
+  int width,
+  float spatial_sigmas[], 
+  int size1, 
+  float spectral_sigmas[], 
+  int size2, 
+  const int winsize /* = 5 */
+  )
+{
+  // TODO: 
+  // take an output as an argument and: done
+  // create a function that creates the nested folders if not existed
+  
+  std::stringstream out1;
+
+  // temporary results
+  float spatial_sigma;
+  float spectral_sigma;
+
+  for(int i = 0; i < size1; i++)
+  {
+    for(int j = 0; j < size2; j++)
+    {
+      spatial_sigma = spatial_sigmas[i];
+      spectral_sigma = spectral_sigmas[j];
+      std::cout << "Bilateral Filtering for " << 
+                "window size = " << winsize <<
+                ", spatial sigma = " << spatial_sigma << 
+                ", spectral sigma = " << spectral_sigma << " \r" 
+                << std::flush;
+      cv::Mat output = cv::Mat::zeros(height, width, CV_8UC1);
+      std::string suffix =  "_bilateral_wind" + 
+                            std::to_string(winsize) +
+                            "_spatial" + std::to_string(spatial_sigma) +
+                            "_spectral" + std::to_string(spectral_sigma) + 
+                            "_";
+
+      // compute bilateral filtering results
+      BilateralFilter(im, im,output, spatial_sigma, spectral_sigma , winsize);
+      out1 << output_file << suffix << ".png";
+      // write to file
+      cv::imwrite(out1.str(), output);
+
+      // clearing stringstream
+      out1.str(std::string());
+    }
+  }
+  std::cout << std::endl;
+
+  // deallocate memory
+  delete spatial_sigmas;
+  delete spectral_sigmas;
+}
+
+cv::Mat getNoise(cv::Mat& im, uchar mean/* = 0*/, uchar stddev/* = 25*/)
+{
+
+  cv::Mat noise(im.size(), im.type());
+  cv::randn(noise, mean, stddev);
+  //noise += im;
+
+  return noise;
 }

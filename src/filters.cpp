@@ -4,7 +4,8 @@
 
 
 void BilateralFilter(
-  const cv::Mat& input, 
+  const cv::Mat& input,
+  const cv::Mat& depth,
   cv::Mat& output,
   float spatial_sigma, 
   float spectral_sigma,
@@ -52,7 +53,7 @@ void BilateralFilter(
             * gaussianKernel.at<float>(i + window_size / 2, j + window_size / 2);
 
           sum
-            += input.at<uchar>(r + i, c + j) * w;
+            += depth.at<uchar>(r + i, c + j) * w;
           sum_w
             += w;
         }
@@ -109,4 +110,43 @@ cv::Mat CreateGaussianKernel(
   // - ...
 
   return kernel;
+}
+
+
+cv::Mat IterativeUpsampling(
+  const cv::Mat& input,
+  const cv::Mat& depth,
+  float spatial_sigma,
+  float spectral_sigma,
+  int window_size
+)
+{
+  //std::cout << input.size().width << ", " << depth.size.width << std::endl;
+  uchar uf = input.size().width / depth.size().width;
+  // copy depth to D
+  cv::Mat D, output, I;
+  input.copyTo(I);
+  depth.copyTo(D);
+
+  for(size_t i = 0; i < uf - 1; i++)
+  {
+    cv::resize(D, D, D.size() * 2); // upsample D 
+    cv::resize(input, I, D.size()); // downsample input
+    
+    // Filtering
+    output = cv::Mat::zeros(I.size(), CV_8UC1);
+    BilateralFilter(I, D, output, spatial_sigma, spectral_sigma, window_size);
+    // assign to D
+    output.copyTo(D);
+  }
+
+  // post processing step
+  // basically it compensate the loss of pixels
+  // when uf was calculated
+  cv::resize(D, D, input.size());
+  output = cv::Mat::zeros(input.size(), CV_8UC1);
+  BilateralFilter(input, D, output, spatial_sigma, spectral_sigma, window_size);
+  output.copyTo(D);
+
+  return D;
 }
