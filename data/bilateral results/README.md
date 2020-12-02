@@ -5,9 +5,7 @@
 ##### spatial sigma = 1
 
 spectral sigma = 3 | spectral sigma = 7
-
 :-: | :-:
-
 ![513](./output_bilateral_wind5_spatial1.000000_spectral3.000000_.png)  | ![517](./output_bilateral_wind5_spatial1.000000_spectral7.000000_.png)
 
 spectral sigma = 9 | spectral sigma =  11
